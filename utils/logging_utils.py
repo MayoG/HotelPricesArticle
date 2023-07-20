@@ -17,4 +17,7 @@ def setup_logger():
 
     root_logger.setLevel(logging.INFO)
 
+    return root_logger
+
+def get_logger():
     return logging.getLogger()

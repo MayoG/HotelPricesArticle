@@ -2,6 +2,12 @@
 import dill as pickle
 import json
 import pandas as pd
+from requests_html import AsyncHTMLSession
+
+async_session = AsyncHTMLSession()
+
+def get_async_session():
+    return async_session
 
 def save_object(obj, file_name="siteData"):
     with open(f'{file_name}.pkl', 'wb') as output_file:
