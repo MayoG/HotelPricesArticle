@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta
 import urllib.parse
-from utils.utils import save_to_json, create_csv, get_async_session
+from datetime import datetime, timedelta
 from utils.logging_utils import get_logger
+from utils.utils import get_async_session, Dummy
 
 DESTINATION_CODES = {
     "New York": 20088325
@@ -9,7 +9,7 @@ DESTINATION_CODES = {
 
 async_session = get_async_session()
 
-logger = get_logger()
+root_logger = get_logger()
 
 def create_booking_url(start_date: datetime.date = datetime.today(), 
                        nights: int = 3, 
@@ -62,18 +62,28 @@ def extract_data_from_booking_hotel_card(hotel_card):
        "km_from_center": km_from_center
     }
 
-def extract_data_from_booking_page(booking_page, page_number: int):
+def extract_data_from_booking_page(booking_page, page_number: int, check_in_date: datetime.date, nights: int, logger = Dummy()):
     page_hotels_data = []
+    logger.info(f"Starting to extract data")
+
     hotels_cards = booking_page.html.find('[data-testid="property-card"]')
 
     for hotel_order, hotel_card in enumerate(hotels_cards):
-        hotel_data = extract_data_from_booking_hotel_card(hotel_card)
-        hotel_data['order'] = (page_number - 1) * 25 + hotel_order
-        page_hotels_data.append(hotel_data)
+        try:
+            hotel_data = extract_data_from_booking_hotel_card(hotel_card)
+            hotel_data['order'] = (page_number - 1) * 25 + hotel_order
+            hotel_data['check_in_day'] = check_in_date.day
+            hotel_data['check_in_month'] = check_in_date.month
+            hotel_data['check_in_year'] = check_in_date.year
+            hotel_data['nights'] = nights
+            page_hotels_data.append(hotel_data)
+        except Exception as err:
+            logger.error(f'Failed to extract data from card No {hotel_order} with error: {err}')
 
     return page_hotels_data
 
 async def extract_booking_data(start_date: datetime.date, nights: int):
+    logger = root_logger.getChild(f"{start_date.strftime('%Y-%m-%d')}_{nights}_nights")
     booking_data = []
 
     first_booking_page_url = create_booking_url(start_date=start_date, nights=nights)
@@ -83,8 +93,7 @@ async def extract_booking_data(start_date: datetime.date, nights: int):
     number_of_pages = int(first_booking_page.html.find('[data-testid="pagination"]', first=True).find('li button')[-1].text)
     logger.info(f"There are {number_of_pages} pages")
 
-    logger.info(f"Extracting data from page number {1}")
-    booking_data.extend(extract_data_from_booking_page(first_booking_page, 1))
+    booking_data.extend(extract_data_from_booking_page(first_booking_page, 1, start_date, nights, logger.getChild(f"page_{1}")))
 
     # for page_number in range(2, number_of_pages + 1):
     for page_number in range(2, 3):
@@ -93,12 +102,8 @@ async def extract_booking_data(start_date: datetime.date, nights: int):
         logger.info(f"Requesting url: {booking_page_url}")
         booking_page = await async_session.get(booking_page_url)
         
-        logger.info(f"Extracting data from page number {page_number}")
-        booking_data.extend(extract_data_from_booking_page(booking_page, page_number))
+        booking_data.extend(extract_data_from_booking_page(booking_page, page_number, start_date, nights, logger.getChild(f"page_{page_number}")))
 
-
-    save_to_json(booking_data)
-    create_csv(booking_data)
     return booking_data
 
 if __name__ == '__main__':
