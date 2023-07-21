@@ -6,6 +6,16 @@ from requests_html import AsyncHTMLSession
 
 async_session = AsyncHTMLSession()
 
+class Dummy(object):
+    """An object that have any attribute
+    Useful for being a default value in unset parameter.
+
+    """
+
+    def do(self, *args, **kw): return self
+    def __getattr__(self, _): return self.do
+    def __call__(self, *args, **kwargs): return self.do
+
 def get_async_session():
     return async_session
 
@@ -25,6 +35,7 @@ def load_from_json(file_path="data/jsonData"):
     with open(f'{file_path}.json', 'r') as fp:
         return json.load(fp)
 
-def create_csv(data: dict, file_path="data/csvData.csv"):
+def create_csv(data: dict, file_path="data/csvData"):
     data_frame = pd.DataFrame.from_dict(data)
-    data_frame.to_csv(file_path)
+    data_frame.to_csv(f"{file_path}.csv")
+
