@@ -4,7 +4,7 @@ from datetime import datetime
 
 def setup_logger():
     root_logger = logging.getLogger()
-    logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s]  %(message)s")
+    logFormatter = logging.Formatter("%(name)-27s: %(levelname)-8s- %(message)s")
     
     streamHandler = logging.StreamHandler(sys.stdout)
     streamHandler.setFormatter(logFormatter)
