@@ -6,11 +6,12 @@ from utils.booking_utils import extract_booking_data
 
 # NIGHTS_RANGE = (3,6) # 3 to 5
 # WEEKS_SKIP_DAYS = [(2, 1), (2, 2), (4, 3)] # First 2 weeks every day, The next two weeks every 2 days, the next 4 weeks every 3 days
+# MAX_PAGE = 5
 
 # Test consts
 NIGHTS_RANGE = (3,5) 
 WEEKS_SKIP_DAYS = [(1,4)]
-
+MAX_PAGE = 2
 
 if __name__ == '__main__':
     setup_logger()
@@ -24,7 +25,7 @@ if __name__ == '__main__':
         for weeks, skip_days in WEEKS_SKIP_DAYS:
             for _ in range(0, weeks*7, skip_days):
                 data_extraction_functions.append(
-                    partial(extract_booking_data, current_day, nights)
+                    partial(extract_booking_data, current_day, nights, MAX_PAGE)
                 )
 
                 current_day += datetime.timedelta(days=skip_days)

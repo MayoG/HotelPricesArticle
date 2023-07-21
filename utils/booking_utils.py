@@ -82,7 +82,7 @@ def extract_data_from_booking_page(booking_page, page_number: int, check_in_date
 
     return page_hotels_data
 
-async def extract_booking_data(start_date: datetime.date, nights: int):
+async def extract_booking_data(start_date: datetime.date, nights: int, max_page=None):
     logger = root_logger.getChild(f"{start_date.strftime('%Y-%m-%d')}_{nights}_nights")
     booking_data = []
 
@@ -95,8 +95,7 @@ async def extract_booking_data(start_date: datetime.date, nights: int):
 
     booking_data.extend(extract_data_from_booking_page(first_booking_page, 1, start_date, nights, logger.getChild(f"page_{1}")))
 
-    # for page_number in range(2, number_of_pages + 1):
-    for page_number in range(2, 3):
+    for page_number in range(2, max_page + 1 if max_page and max_page < number_of_pages + 1 else number_of_pages + 1):
         booking_page_url = create_booking_url(start_date=start_date, nights=nights, offset=(page_number - 1) * 25)
         
         logger.info(f"Requesting url: {booking_page_url}")
