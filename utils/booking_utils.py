@@ -7,6 +7,75 @@ DESTINATION_CODES = {
     "New York": 20088325
 }
 
+class BookingDataExtraction(object):
+    def __init__(self, hotel_card, logger, card_number) -> None:
+        self.hotel_card = hotel_card
+        self.logger = logger
+        self.card_number = card_number
+
+    def hotel_name(self) -> dict:
+        return {"name": self.hotel_card.find('[data-testid="title"]', first=True).text}
+    
+    def hotel_reviews(self) -> dict:
+        numerical_review_score, verbal_review_score, reviewers_amount = self.hotel_card.find(
+        '[data-testid="review-score"]', first=True).text.split('\n')
+        reviewers_amount = int(reviewers_amount.split()[0].replace(',', '')) # Initial value was '123 reviews'
+
+        return {
+            "numerical_review_score": numerical_review_score,
+            "verbal_review_score": verbal_review_score, 
+            "reviewers_amount": reviewers_amount
+            }
+    
+    def hotel_page_link(self) -> dict:
+        return {
+            "page_link": list(self.hotel_card.find('[data-testid="title-link"]', first=True).absolute_links)[0]
+            }
+    
+    def hotel_price(self) -> dict:
+        currency_symbol, price = self.hotel_card.find('[data-testid="price-and-discounted-price"]', first=True).text.split()
+        price = int(price.replace(',', '')) # Remove comas from prices like 5,854
+        
+        return {
+            "price": price,
+            "currency_symbol": currency_symbol
+        }
+    
+    def hotel_saving_percentage(self) -> dict:
+        saving_percentage = self.hotel_card.find('[data-testid="absolute-savings-percentage"]', first=True)
+        if saving_percentage:
+            saving_percentage = saving_percentage.text.split('%')[0]
+
+        return {
+            "saving_percentage": saving_percentage
+            } 
+    
+    def hotel_km_from_center(self) -> dict:        
+        return {
+            "km_from_center": float(self.hotel_card.find('[data-testid="distance"]', first=True).text.split()[0])        
+            }
+
+    def hotel_stars(self) -> dict: # stars or squares
+        return {
+            "stars": int(self.hotel_card.find('div[aria-label$="out of 5"]', first=True).attrs['aria-label'].split()[0])
+            }
+
+    def hotel_preferred(self) -> dict: # Include the Like Icon next to the stars
+        return {
+            "preferred": self.hotel_card.find('[data-testid="preferred-badge"]', first=True) != None
+        }
+
+    def extract_data(self):
+        data = {}
+        extraction_methods = [func for func in dir(BookingDataExtraction) if callable(getattr(BookingDataExtraction, func)) and not func.startswith("__") and not func == 'extract_data']
+        for extraction_method in extraction_methods:
+            try:
+                data.update(getattr(self, extraction_method)())
+            except Exception as err:
+                self.logger.info(f'Failed to extract {extraction_method} from card No {self.card_number} with error: {err}')
+
+        return data
+
 async_session = get_async_session()
 
 root_logger = get_logger()
@@ -36,31 +105,9 @@ def create_booking_url(start_date: datetime.date = datetime.today(),
     )
     return BOOKING_URL + url_query
 
-def extract_data_from_booking_hotel_card(hotel_card):
-    hotel_name = hotel_card.find('[data-testid="title"]', first=True).text
-    numerical_review_score, verbal_review_score, reviewers_amount = hotel_card.find(
-      '[data-testid="review-score"]', first=True).text.split('\n')
-    reviewers_amount = int(reviewers_amount.split()[0].replace(',', '')) # Initial value was '123 reviews'
-    hotel_page_link = list(hotel_card.find('[data-testid="title-link"]', first=True).absolute_links)[0]
-    currency_symbol, price = hotel_card.find('[data-testid="price-and-discounted-price"]', first=True).text.split()
-    price = int(price.replace(',', '')) # Remove comas from prices like 5,854
-    saving_percentage = hotel_card.find('[data-testid="absolute-savings-percentage"]', first=True)
-    if saving_percentage:
-      saving_percentage = saving_percentage.text.split('%')[0]
-
-    km_from_center = float(hotel_card.find('[data-testid="distance"]', first=True).text.split()[0])
-
-    return {
-       "hotel_name": hotel_name,
-       "numerical_review_score": numerical_review_score,
-       "verbal_review_score": verbal_review_score, 
-       "reviewers_amount": reviewers_amount,
-       "hotel_page_link": hotel_page_link,
-       "price": price,
-       "currency_symbol": currency_symbol,
-       "saving_percentage": saving_percentage,
-       "km_from_center": km_from_center
-    }
+def extract_data_from_booking_hotel_card(hotel_card, logger, card_number):
+    extraction_data = BookingDataExtraction(hotel_card=hotel_card, logger=logger, card_number=card_number)
+    return extraction_data.extract_data()
 
 def extract_data_from_booking_page(booking_page, page_number: int, check_in_date: datetime.date, nights: int, logger = Dummy()):
     page_hotels_data = []
@@ -70,7 +117,7 @@ def extract_data_from_booking_page(booking_page, page_number: int, check_in_date
 
     for hotel_order, hotel_card in enumerate(hotels_cards):
         try:
-            hotel_data = extract_data_from_booking_hotel_card(hotel_card)
+            hotel_data = extract_data_from_booking_hotel_card(hotel_card, logger=logger, card_number=hotel_order)
             hotel_data['order'] = (page_number - 1) * 25 + hotel_order
             hotel_data['check_in_day'] = check_in_date.day
             hotel_data['check_in_month'] = check_in_date.month
@@ -78,7 +125,7 @@ def extract_data_from_booking_page(booking_page, page_number: int, check_in_date
             hotel_data['nights'] = nights
             page_hotels_data.append(hotel_data)
         except Exception as err:
-            logger.error(f'Failed to extract data from card No {hotel_order} with error: {err}')
+            logger.exception(f'Failed to extract data from card No {hotel_order} with error: {err}')
 
     return page_hotels_data
 
@@ -104,6 +151,3 @@ async def extract_booking_data(start_date: datetime.date, nights: int, max_page=
         booking_data.extend(extract_data_from_booking_page(booking_page, page_number, start_date, nights, logger.getChild(f"page_{page_number}")))
 
     return booking_data
-
-if __name__ == '__main__':
-    print(create_booking_url())
