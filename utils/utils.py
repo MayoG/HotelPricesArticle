@@ -35,7 +35,6 @@ def load_from_json(file_path="data/jsonData"):
     with open(f'{file_path}.json', 'r') as fp:
         return json.load(fp)
 
-def create_csv(data: dict, file_path="data/csvData"):
+def create_csv(data, file_path="data/csvData"):
     data_frame = pd.DataFrame.from_dict(data)
     data_frame.to_csv(f"{file_path}.csv")
-
