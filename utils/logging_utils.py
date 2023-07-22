@@ -1,5 +1,5 @@
-import logging
 import sys
+import logging
 from datetime import datetime
 
 def setup_logger():

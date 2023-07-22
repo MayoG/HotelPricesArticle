@@ -1,7 +1,7 @@
 # import pickle
-import dill as pickle
 import json
 import pandas as pd
+import dill as pickle
 from requests_html import AsyncHTMLSession
 
 async_session = AsyncHTMLSession()
