@@ -29,7 +29,7 @@ class BookingDataExtraction(object):
     
     def hotel_page_link(self) -> dict:
         return {
-            "page_link": list(self.hotel_card.find('[data-testid="title-link"]', first=True).absolute_links)[0]
+            "page_link": self.hotel_card.find('[data-testid="title-link"]', first=True).attrs['href']
             }
     
     def hotel_price(self) -> dict:
